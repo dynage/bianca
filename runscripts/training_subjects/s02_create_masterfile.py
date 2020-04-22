@@ -14,9 +14,6 @@ name = "bianca"
 prep_dir = base_dir / prep_name
 bianca_dir = base_dir / name
 
-wd_dir = base_dir / "_wd" / name
-crash_dir = base_dir / "_crash" / name
-
 flair_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_acq-" + acq + "_*_FLAIR_biascorr.nii.gz"
 t1w_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_space-" + space + "_desc-t1w_brain.nii.gz"
 manual_mask_tmpl = "sub-{subject}/ses-{session}/sub-{subject}_ses-{session}_acq-" + acq + "_run-1_FLAIR_mask_goldstandard_new.nii.gz"
@@ -28,8 +25,6 @@ create_masterfile(prep_dir, training_data_dir, bianca_dir,
                   manual_mask_tmpl=manual_mask_tmpl,
                   mat_tmpl=mat_tmpl)
 
-
-
 ####
 # 3D
 acq = "3D"
@@ -40,9 +35,6 @@ name = "bianca"
 
 prep_dir = base_dir / prep_name
 bianca_dir = base_dir / name
-
-wd_dir = base_dir / "_wd" / name
-crash_dir = base_dir / "_crash" / name
 
 flair_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_acq-" + acq + "_*_FLAIR_biascorr.nii.gz"
 t1w_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_space-" + space + "_desc-t1w_brain.nii.gz"
