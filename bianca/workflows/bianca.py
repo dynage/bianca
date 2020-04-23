@@ -56,7 +56,7 @@ def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subje
 
     def get_query_info_fnc(df, query_subject_idx):
         def get_subjects_info(df, idx):
-            return df.iloc[idx].subject[0], df.iloc[idx].session[0], df.iloc[idx].flair[0]
+            return df.iloc[idx].subject.tolist()[0], df.iloc[idx].session.tolist()[0], df.iloc[idx].flair.tolist()[0]
 
         query_subject, query_session, query_flair = get_subjects_info(df, [query_subject_idx])
         query_subject_num = query_subject_idx + 1
