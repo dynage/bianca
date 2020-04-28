@@ -3,6 +3,7 @@ from nipype.interfaces import utility as niu, freesurfer as fs, fsl, io, ants
 from niworkflows.interfaces.bids import DerivativesDataSink
 from pathlib import Path
 from warnings import warn
+from bianca import __version__
 
 
 def get_grabber_wf(name="grabber_wf"):
@@ -82,11 +83,15 @@ def get_prep_flair_wf(name="prep_flair"):
     wm_mask = Node(fs.MRIConvert(out_type='niigz', out_orientation='LAS'), name="wm_mask")
     wf.connect(wm_mask_mgz, "binary_file", wm_mask, "in_file")
 
+    vent_mask_mgz = Node(fs.Binarize(match=[4, 43]), name="vent_mask_mgz")
+    wf.connect(fs_info, "fs_aparcaseg", vent_mask_mgz, "in_file")
+    vent_mask = Node(fs.MRIConvert(out_type='niigz', out_orientation='LAS'), name="vent_mask")
+    wf.connect(vent_mask_mgz, "binary_file", vent_mask, "in_file")
+
     # t1w -> flair
     flair = Node(fsl.Reorient2Std(), name="flair")
     wf.connect(inputnode, "flair_file", flair, "in_file")
 
-    # fixme num_threads
     flair_biascorr = Node(ants.N4BiasFieldCorrection(save_bias=False), name="flair_biascorr")
     wf.connect(flair, "out_file", flair_biascorr, "input_image")
 
@@ -100,10 +105,31 @@ def get_prep_flair_wf(name="prep_flair"):
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", t1w_brain_flairSp, "in_matrix_file")
     wf.connect(flair_biascorr, "output_image", t1w_brain_flairSp, "reference")
 
+    brainmask_flairSp = Node(fsl.maths.MathsCommand(args="-bin"), name="brainmask_flairSp")
+    wf.connect(t1w_brain_flairSp, "out_file", brainmask_flairSp, "in_file")
+
     wm_mask_flairSp = Node(fsl.ApplyXFM(interp="nearestneighbour"), name="wm_mask_flairSp")
     wf.connect(wm_mask, "out_file", wm_mask_flairSp, "in_file")
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", wm_mask_flairSp, "in_matrix_file")
     wf.connect(flair_biascorr, "output_image", wm_mask_flairSp, "reference")
+
+    # get ventricle mask and distance map
+    vent_mask_flairSp = Node(fsl.ApplyXFM(interp="nearestneighbour"), name="vent_mask_flairSp")
+    wf.connect(vent_mask, "out_file", vent_mask_flairSp, "in_file")
+    wf.connect(flirt_t1w_to_flair, "out_matrix_file", vent_mask_flairSp, "in_matrix_file")
+    wf.connect(flair_biascorr, "output_image", vent_mask_flairSp, "reference")
+
+    distancemap = Node(fsl.DistanceMap(), name="distancemap")
+    wf.connect(vent_mask_flairSp, "out_file", distancemap, "in_file")
+    wf.connect(brainmask_flairSp, "out_file", distancemap, "mask_file")
+
+    perivent_mask = Node(fsl.maths.MathsCommand(), name="perivent_mask")
+    perivent_mask.inputs.args = "-uthr 10 -bin"
+    wf.connect(distancemap, "distance_map", perivent_mask, "in_file")
+
+    deepWM_mask = Node(fsl.maths.MathsCommand(), name="deepWM_mask")
+    deepWM_mask.inputs.args = "-thr 10 -bin"
+    wf.connect(distancemap, "distance_map", deepWM_mask, "in_file")
 
     # find MNI transformation
     flirt_t1w_to_mni = Node(fsl.FLIRT(dof=12), name="flirt_t1w_to_mni")
@@ -126,13 +152,19 @@ def get_prep_flair_wf(name="prep_flair"):
     # all in flair space and LAS (except flair_to_mni and flair_mniSp)
     outputnode = Node(
         niu.IdentityInterface(
-            fields=["flair_biascorr", "t1w", "t1w_brain", "brain_mask", "wm_mask", "fswmh_mask",
-                    "t1w_to_flair", "flair_mniSp", "flair_to_mni"]),
+            fields=["flair_biascorr", "t1w", "t1w_brain", "brain_mask", "brainmask", "wm_mask", "vent_mask",
+                    "distancemap", "perivent_mask", "deepWM_mask", "distancemap", "t1w_to_flair", "flair_mniSp",
+                    "flair_to_mni"]),
         name='outputnode')
     wf.connect(flair_biascorr, "output_image", outputnode, "flair_biascorr")
 
     wf.connect(t1w_brain_flairSp, "out_file", outputnode, "t1w_brain")
+    wf.connect(brainmask_flairSp, "out_file", outputnode, "brainmask")
     wf.connect(wm_mask_flairSp, "out_file", outputnode, "wm_mask")
+    wf.connect(vent_mask_flairSp, "out_file", outputnode, "vent_mask")
+    wf.connect(distancemap, "distance_map", outputnode, "distancemap")
+    wf.connect(perivent_mask, "out_file", outputnode, "perivent_mask")
+    wf.connect(deepWM_mask, "out_file", outputnode, "deepWM_mask")
 
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", outputnode, "t1w_to_flair")
 
@@ -150,8 +182,9 @@ def get_ds_wf(out_dir, name="get_ds_wf"):
     out_path_base = str(out_dir.name)
 
     inputnode = Node(niu.IdentityInterface(
-        fields=['flair_biascorr', 't1w_brain', 'wm_mask', 'bids_flair_file', "generic_bids_file", "space",
-                "t1w_to_flair", "flair_mniSp", "flair_to_mni"]),
+        fields=['flair_biascorr', 't1w_brain', 'brainmask', 'wm_mask', 'vent_mask', 'distancemap', 'perivent_mask',
+                'deepWM_mask', 'bids_flair_file', "generic_bids_file", "space", "t1w_to_flair", "flair_mniSp",
+                "flair_to_mni"]),
         name='inputnode')
 
     ds_flair_biascorr = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
@@ -166,12 +199,47 @@ def get_ds_wf(out_dir, name="get_ds_wf"):
     wf.connect(inputnode, "generic_bids_file", ds_wmmask, "source_file")
     wf.connect(inputnode, "space", ds_wmmask, "space")
 
+    ds_ventmask = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
+                       name="ds_ventmask")
+    ds_ventmask.inputs.desc = "ventmask"
+    wf.connect(inputnode, "vent_mask", ds_ventmask, "in_file")
+    wf.connect(inputnode, "generic_bids_file", ds_ventmask, "source_file")
+    wf.connect(inputnode, "space", ds_ventmask, "space")
+
+    ds_distancemap = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
+                          name="ds_distancemap")
+    ds_distancemap.inputs.desc = "distanceVent"
+    wf.connect(inputnode, "distancemap", ds_distancemap, "in_file")
+    wf.connect(inputnode, "generic_bids_file", ds_distancemap, "source_file")
+    wf.connect(inputnode, "space", ds_distancemap, "space")
+
+    ds_perivent_mask = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
+                            name="ds_perivent_mask")
+    ds_perivent_mask.inputs.desc = "periventmask"
+    wf.connect(inputnode, "perivent_mask", ds_perivent_mask, "in_file")
+    wf.connect(inputnode, "generic_bids_file", ds_perivent_mask, "source_file")
+    wf.connect(inputnode, "space", ds_perivent_mask, "space")
+
+    ds_deepWM_mask = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
+                          name="ds_deepWM_mask")
+    ds_deepWM_mask.inputs.desc = "deepWMmask"
+    wf.connect(inputnode, "deepWM_mask", ds_deepWM_mask, "in_file")
+    wf.connect(inputnode, "generic_bids_file", ds_deepWM_mask, "source_file")
+    wf.connect(inputnode, "space", ds_deepWM_mask, "space")
+
     ds_t1w_brain = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
                         name="ds_t1w_brain")
     ds_t1w_brain.inputs.desc = "t1w_brain"
     wf.connect(inputnode, "t1w_brain", ds_t1w_brain, "in_file")
     wf.connect(inputnode, "generic_bids_file", ds_t1w_brain, "source_file")
     wf.connect(inputnode, "space", ds_t1w_brain, "space")
+
+    ds_brainmask = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base),
+                        name="ds_brainmask")
+    ds_brainmask.inputs.desc = "brainmask"
+    wf.connect(inputnode, "brainmask", ds_brainmask, "in_file")
+    wf.connect(inputnode, "generic_bids_file", ds_brainmask, "source_file")
+    wf.connect(inputnode, "space", ds_brainmask, "space")
 
     ds_t1w_to_flair = Node(DerivativesDataSink(base_directory=base_directory, out_path_base=out_path_base,
                                                allowed_entities=['from', 'to'], **{'from': 't1w'}),
@@ -200,11 +268,15 @@ def get_ds_wf(out_dir, name="get_ds_wf"):
     return wf
 
 
-def prepare_bianca_data(bids_dir, out_dir, fs_dir, wd_dir, crash_dir, info_tpls, n_cpu=4):
-    import subprocess
-    version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "pipeline_version.txt").write_text(version_label.decode())
+def prepare_bianca_data(bids_dir, out_dir, fs_dir, wd_dir, crash_dir, info_tpls, n_cpu=-1):
+    out_dir.mkdir(exist_ok=True, parents=True)
+    try:
+        import subprocess
+        version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "pipeline_version.txt").write_text(version_label.decode())
+    except:
+        (out_dir / "pipeline_version.txt").write_text(__version__)
 
     wf = Workflow(name="meta_prepare")
     wf.base_dir = wd_dir
@@ -239,7 +311,12 @@ def prepare_bianca_data(bids_dir, out_dir, fs_dir, wd_dir, crash_dir, info_tpls,
     ds_wf = get_ds_wf(out_dir)
     wf.connect([(prep_flair_wf, ds_wf, [("outputnode.flair_biascorr", "inputnode.flair_biascorr"),
                                         ("outputnode.t1w_brain", "inputnode.t1w_brain"),
+                                        ("outputnode.brainmask", "inputnode.brainmask"),
                                         ("outputnode.wm_mask", "inputnode.wm_mask"),
+                                        ("outputnode.vent_mask", "inputnode.vent_mask"),
+                                        ("outputnode.distancemap", "inputnode.distancemap"),
+                                        ("outputnode.perivent_mask", "inputnode.perivent_mask"),
+                                        ("outputnode.deepWM_mask", "inputnode.deepWM_mask"),
                                         ("outputnode.t1w_to_flair", "inputnode.t1w_to_flair"),
                                         ("outputnode.flair_mniSp", "inputnode.flair_mniSp"),
                                         ("outputnode.flair_to_mni", "inputnode.flair_to_mni"),
@@ -253,6 +330,7 @@ def prepare_bianca_data(bids_dir, out_dir, fs_dir, wd_dir, crash_dir, info_tpls,
                 ]
                )
 
-    wf.write_graph("workflow_graph.png", graph2use="exec")
-    wf.write_graph("workflow_graph_c.png", graph2use="colored")
+    # fixme
+    # wf.write_graph("workflow_graph.png", graph2use="exec")
+    # wf.write_graph("workflow_graph_c.png", graph2use="colored")
     wf.run(plugin='MultiProc', plugin_args={'n_procs': n_cpu})
