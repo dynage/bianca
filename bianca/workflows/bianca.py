@@ -8,9 +8,6 @@ import numpy as np
 from copy import copy
 
 
-# todo: save clf in interface
-
-
 def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subject_idx, query_subject_idx,
                       name="bianca", n_cpu=4, save_classifier=False, trained_classifier_file=None):
     """
@@ -130,7 +127,7 @@ def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subje
         wf.connect(training_info, "training_sessions", classifier_info, "training_sessions")
 
     ds = Node(DerivativesDataSink(base_directory=str(out_dir.parent), out_path_base=str(out_dir.name)), name="ds")
-    ds.inputs.suffix = "biancaWMHmask"
+    ds.inputs.suffix = "LPM"
     wf.connect(bianca, "out_file", ds, "in_file")
     wf.connect(query_info, "query_flair", ds, "source_file")
     wf.connect(classifier_info, "meta_dict", ds, "meta_dict")
