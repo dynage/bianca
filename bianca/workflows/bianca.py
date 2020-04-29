@@ -3,6 +3,7 @@ from nipype.interfaces import utility as niu
 from niworkflows.interfaces.bids import DerivativesDataSink
 from .interfaces import BIANCA
 
+import subprocess, bianca
 import pandas as pd
 import numpy as np
 from copy import copy
@@ -149,15 +150,17 @@ def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subje
     wf.config.remove_unnecessary_outputs = False
     wf.config["execution"]["crashdump_dir"] = crash_dir
     wf.config["monitoring"]["enabled"] = "true"
-    wf.write_graph("workflow_graph.png", graph2use="exec")
-    wf.write_graph("workflow_graph_c.png", graph2use="colored")
+    # wf.write_graph("workflow_graph.png", graph2use="exec")
+    # wf.write_graph("workflow_graph_c.png", graph2use="colored")
     wf.run(plugin='MultiProc', plugin_args={'n_procs': n_cpu})
 
 
 def run_bianca_loo(out_dir, wd_dir, crash_dir, n_cpu=4, save_classifier=False, trained_classifier_file=None):
-    import subprocess
-    version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
-    (out_dir / "pipeline_version.txt").write_text(version_label.decode())
+    try:
+        version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
+        (out_dir / "pipeline_version.txt").write_text(f"git {version_label.decode()}")
+    except:
+        (out_dir / "pipeline_version.txt").write_text(bianca.__version__)
 
     masterfile = out_dir / "masterfile.txt"
     df = pd.read_csv(out_dir / "masterfile_wHeader.txt", sep=" ")

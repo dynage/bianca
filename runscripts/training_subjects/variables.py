@@ -30,6 +30,6 @@ info_tpls_3d = [
     # fixme
     # ("lhabX0185", "tp2", "3D"),
     # ("lhabX0188", "tp5", "3D"),
-    ("lhabX0219", "tp5", "3D"),
+    # ("lhabX0219", "tp5", "3D"),
     ("lhabX0220", "tp5", "3D"),
 ]

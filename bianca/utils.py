@@ -33,7 +33,6 @@ def create_masterfile(prep_dir, training_data_dir, bianca_dir, flair_tmpl, t1w_t
     training_subjects = df[training_subject_index]
 
     # check if files exist
-    # fixme
     files = df[['flair', 't1w', 'manual_mask', 'mat']].melt()["value"].to_list()
     for f in files:
         if f:
