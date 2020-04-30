@@ -5,19 +5,35 @@ BIDS formatted with ses level
 Freesurfer dir
 Training data
 
-## 1. Prepare
-creates a folder in {out_dir}/sub-{subject}/ses-{session}/anat/ that includes:
+## Prepare T1w
+
+### workflow
+
+
+### outputs
+creates a folder in {out_dir}/sub-{subject}/ses-{session}/anat/`
+that include files to be fed into prepare_flair (among other files):
+
+| file                          | info           |
+| -------------                 | -------------|
+|*_desc-preproc_T1w.nii.gz      | preprocessed t1w|
+|*_desc-brain_T1w.nii.gz        | brain extracted preprocessed t1w|
+|*_desc-brain_mask.nii.gz       | brain mask|
+|*_desc-bianca_ventmask.nii.gz  | ventricle mask|
+|*_desc-bianca_wmmask.nii.gz    | bianca wm mask|
+| *_from-T1w_to-MNI_xfm.mat     |12 dof transormation matrix t1w to MNI|
+
+## 2. Prepare FLAIR
 
 ### workflow
 * The flair image is bias corrected
-* Freesurfer: 
-    * export T1w and brain extracted t1w image (T1.mgz, brain.mgz)
-    * export WM mask from aparc+aseg.mgz
-* register T1w to flair space and apply registration to brain extracted T1w and wm mask
-* T1w to MNI registration (12 dof), combine with T1w-to-flair --> flair to MNI registration
+* bring T1w-space images to flair space
+* combine  T1w-to-MNI registration (12 dof) with T1w-to-flair --> flair to MNI registration
 
 
 ### output
+creates a folder in {out_dir}/sub-{subject}/ses-{session}/anat/ that includes:
+
 *important for bianca:*
 
 

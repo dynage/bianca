@@ -1,5 +1,16 @@
 import pandas as pd
 from pathlib import Path
+import subprocess
+from bianca import __version__
+
+
+def export_version(out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
+        (out_dir / "pipeline_version.txt").write_text(f"git: {version_label.decode()}")
+    except:
+        (out_dir / "pipeline_version.txt").write_text(__version__)
 
 
 def create_masterfile(prep_dir, training_data_dir, bianca_dir, flair_tmpl, t1w_tmpl, manual_mask_tmpl,
