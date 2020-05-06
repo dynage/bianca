@@ -15,7 +15,7 @@ training_data_dir = Path("/home/fliem/lhab_collaboration/WMH/BIANCA/training_dat
 base_dir = Path("/home/fliem/lhab_collaboration/WMH/BIANCA/full_sample/")
 
 name = "bianca"
-n_cpu = 32
+n_cpu = 25
 
 ####
 # 2D

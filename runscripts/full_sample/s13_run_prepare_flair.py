@@ -21,7 +21,7 @@ wd_dir = base_dir / "_wd" / acq / name
 crash_dir = base_dir / "_crash" / acq / name
 
 prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, subjects_sessions,
-                    flair_acq=acq, n_cpu=32, omp_nthreads=2)
+                    flair_acq=acq, n_cpu=25, omp_nthreads=1)
 
 ####
 # 3D
@@ -35,4 +35,4 @@ wd_dir = base_dir / "_wd" / acq / name
 crash_dir = base_dir / "_crash" / acq / name
 
 prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, subjects_sessions,
-                    flair_acq=acq, n_cpu=32, omp_nthreads=2)
+                    flair_acq=acq, n_cpu=25, omp_nthreads=1)

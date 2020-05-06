@@ -18,4 +18,4 @@ crash_dir = base_dir / "_crash" / name
 subjects_sessions = get_subject_sessions(bids_dir, "*")
 print(f"\n{len(subjects_sessions)} subjects-sessions\n")
 
-prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects_sessions, n_cpu=32, omp_nthreads=2)
+prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects_sessions, n_cpu=25, omp_nthreads=1)
