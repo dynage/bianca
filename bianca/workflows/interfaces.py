@@ -1,15 +1,9 @@
-from nipype.interfaces.base import (TraitedSpec, File, InputMultiPath, OutputMultiPath,
-                                    Undefined, traits, isdefined)
+from nipype.interfaces.base import (TraitedSpec, File, traits)
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 import os
 
 from bianca import workflows
 from pathlib import Path
-
-"""bianca --singlefile=/Users/franzliem/Desktop/bianca/bianca/masterfile.txt 
---brainmaskfeaturenum=2 --labelfeaturenum=3 --matfeaturenum=4 
---trainingnums=all --querysubjectnum=1 --saveclassifierdata=/Users/franzliem/Desktop/bianca/bianca/classifier -v
-"""
 
 
 class BIANCAInputSpec(FSLCommandInputSpec):
@@ -50,19 +44,6 @@ class BIANCA(FSLCommand):
         outputs['classifier_file'] = os.path.abspath("classifier")
         outputs['classifier_labels_file'] = os.path.abspath("classifier_labels")
         return outputs
-
-
-"""
- make_bianca_mask <structural_image> <CSF pve> <warp_file_MNI2structural> <keep_intermediate_files>
- expects 
- brain extracted image would be called <structural image>_brain.nii.gz
- + ${strucimg}_brain_mask.nii.gz
- Output: the script creates two files called <structural image>_bianca_mask.nii.gz , <structural image>_ventmask.nii.gz
- 
- <structural_image> <CSF pve> <warp_file_MNI2structural> <keep_intermediate_files>
-  <structural_image_brainextracted> <brainmask>"
-  
- """
 
 
 class MakeBiancaMaskInputSpec(FSLCommandInputSpec):

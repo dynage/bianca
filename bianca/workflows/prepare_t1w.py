@@ -1,10 +1,7 @@
-from pathlib import Path
-
 from nipype.pipeline import engine as pe
 from nipype import Workflow
-from nipype.interfaces import utility as niu, fsl, io, ants
+from nipype.interfaces import utility as niu, fsl, ants
 
-import smriprep
 import niworkflows
 from niworkflows.interfaces.bids import DerivativesDataSink
 
@@ -13,15 +10,12 @@ from warnings import warn
 
 
 def _check_versions():
-    if smriprep.__version__ != '0.5.2':
-        warn(f"tested with smriprep version 0.5.2. but {smriprep.__version__} is installed")
-
     if niworkflows.__version__ != '1.1.12':
         warn(f"tested with niworkflows version 0.5.2. but {niworkflows.__version__} is installed")
 
 
-def prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, info_tpls, n_cpu=1, omp_nthreads=1, run_wf=True,
-                graph=False):
+def prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects_sessions, n_cpu=1, omp_nthreads=1,
+                run_wf=True, graph=False):
     _check_versions()
     export_version(out_dir)
 
@@ -33,17 +27,16 @@ def prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, info_tpls, n
     wf.config["execution"]["crashdump_dir"] = crash_dir
     wf.config["monitoring"]["enabled"] = "true"
 
-    for subject, sessions in info_tpls:
-        for session in sessions:
-            name = f"anat_preproc_{subject}_{session}"
-            single_ses_wf = init_single_ses_anat_preproc_wf(subject=subject,
-                                                            session=session,
-                                                            bids_dir=bids_dir,
-                                                            smriprep_dir=smriprep_dir,
-                                                            out_dir=out_dir,
-                                                            name=name,
-                                                            omp_nthreads=omp_nthreads)
-            wf.add_nodes([single_ses_wf])
+    for subject, session in subjects_sessions:
+        name = f"anat_preproc_{subject}_{session}"
+        single_ses_wf = init_single_ses_anat_preproc_wf(subject=subject,
+                                                        session=session,
+                                                        bids_dir=bids_dir,
+                                                        smriprep_dir=smriprep_dir,
+                                                        out_dir=out_dir,
+                                                        name=name,
+                                                        omp_nthreads=omp_nthreads)
+        wf.add_nodes([single_ses_wf])
     if graph:
         wf.write_graph("workflow_graph.png", graph2use="exec")
         wf.write_graph("workflow_graph_c.png", graph2use="colored")
@@ -64,8 +57,6 @@ def init_single_ses_anat_preproc_wf(subject,
                                     out_dir,
                                     omp_nthreads=1,
                                     name='anat_preproc_wf'):
-    """
-    """
     wf = Workflow(name=name)
 
     def subject_info_fnc(bids_dir, smriprep_dir, subject, session):

@@ -6,15 +6,8 @@ from warnings import warn
 from ..utils import export_version
 
 
-def _expand_info_tpls(info_tpls):
-    o = []
-    for subject, sessions, acq in info_tpls:
-        for session in sessions:
-            o.append((subject, session, acq))
-    return o
-
-
-def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info_tpls, n_cpu=-1,
+def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, subjects_sessions,
+                        flair_acq, n_cpu=-1,
                         omp_nthreads=1, run_wf=True, graph=False):
     out_dir.mkdir(exist_ok=True, parents=True)
     export_version(out_dir)
@@ -25,11 +18,10 @@ def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_d
     wf.config["execution"]["crashdump_dir"] = crash_dir
     wf.config["monitoring"]["enabled"] = "true"
 
-    subjects, sessions, flair_acqs = list(zip(*_expand_info_tpls(info_tpls)))
+    subjects, sessions = list(zip(*subjects_sessions))
     infosource = Node(niu.IdentityInterface(fields=["subject", "session", "flair_acq"]), name="infosource")
     infosource.iterables = [("subject", subjects),
                             ("session", sessions),
-                            ("flair_acq", flair_acqs)
                             ]
     infosource.synchronize = True
 
@@ -79,10 +71,10 @@ def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_d
     grabber.inputs.bids_dir = bids_dir
     grabber.inputs.t1w_prep_dir = t1w_prep_dir
     grabber.inputs.template_prep_dir = template_prep_dir
+    grabber.inputs.flair_acq = flair_acq
 
     wf.connect([(infosource, grabber, [("subject", "subject"),
                                        ("session", "session"),
-                                       ("flair_acq", "flair_acq")
                                        ]
                  )
                 ]

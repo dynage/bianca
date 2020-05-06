@@ -4,6 +4,21 @@ import subprocess
 from bianca import __version__
 
 
+def get_subject_sessions(bids_dir, flair_acq):
+    def _get_suse_from_path(p):
+        session = p.parents[1].name.replace("ses-", "")
+        subject = p.parents[2].name.replace("sub-", "")
+        return subject, session
+
+    flair_files = list(Path(bids_dir).glob(f"sub-*/ses-*/anat/*_acq-{flair_acq}_*_FLAIR.nii.gz"))
+    t1w_files = list(Path(bids_dir).glob(f"sub-*/ses-*/anat/*_T1w.nii.gz"))
+    flair_suse = set([_get_suse_from_path(p) for p in flair_files])
+    t1w_suse = set([_get_suse_from_path(p) for p in t1w_files])
+    subject_sessions = list(flair_suse & t1w_suse)
+    subject_sessions.sort()
+    return subject_sessions
+
+
 def export_version(out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     try:

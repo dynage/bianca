@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from nipype.pipeline import engine as pe
 from nipype import Workflow
-from nipype.interfaces import utility as niu, fsl, io, ants
+from nipype.interfaces import utility as niu, fsl
 from niworkflows.interfaces.bids import DerivativesDataSink
 from .interfaces import MakeBiancaMask
 from ..utils import export_version
