@@ -21,4 +21,4 @@ subjects.sort()
 print(subjects)
 print(f"\n{len(subjects)} subjects\n")
 
-prepare_template(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects, n_cpu=30, omp_nthreads=1)
+prepare_template(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects, n_cpu=25, omp_nthreads=1)
