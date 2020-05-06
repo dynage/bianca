@@ -6,8 +6,16 @@ from warnings import warn
 from ..utils import export_version
 
 
-def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info_tpls, n_cpu=-1, run_wf=True,
-                        graph=False):
+def _expand_info_tpls(info_tpls):
+    o = []
+    for subject, sessions, acq in info_tpls:
+        for session in sessions:
+            o.append((subject, session, acq))
+    return o
+
+
+def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info_tpls, n_cpu=-1,
+                        omp_nthreads=1, run_wf=True, graph=False):
     out_dir.mkdir(exist_ok=True, parents=True)
     export_version(out_dir)
 
@@ -17,7 +25,7 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
     wf.config["execution"]["crashdump_dir"] = crash_dir
     wf.config["monitoring"]["enabled"] = "true"
 
-    subjects, sessions, flair_acqs = list(zip(*info_tpls))
+    subjects, sessions, flair_acqs = list(zip(*_expand_info_tpls(info_tpls)))
     infosource = Node(niu.IdentityInterface(fields=["subject", "session", "flair_acq"]), name="infosource")
     infosource.iterables = [("subject", subjects),
                             ("session", sessions),
@@ -25,9 +33,10 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
                             ]
     infosource.synchronize = True
 
-    def subject_info_fnc(bids_dir, t1w_prep_dir, subject, session, flair_acq):
+    def subject_info_fnc(bids_dir, template_prep_dir, t1w_prep_dir, subject, session, flair_acq):
         from pathlib import Path
         sub_ses = f"sub-{subject}_ses-{session}"
+        sub = f"sub-{subject}"
 
         flair_files = list(Path(bids_dir).glob(
             f"sub-{subject}/ses-{session}/anat/{sub_ses}_acq-{flair_acq}_*_FLAIR.nii.gz"))
@@ -39,27 +48,37 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
         generic_bids_file = Path(bids_dir) / f"sub-{subject}/ses-{session}/anat/{sub_ses}_T1w.nii.gz"
         flair_space = f"flair{flair_acq}"
 
-        prep_t1w_sub = Path(t1w_prep_dir) / f"sub-{subject}/ses-{session}/anat/"
-        t1w = prep_t1w_sub / f"{sub_ses}_desc-preproc_T1w.nii.gz"
-        t1w_brain = prep_t1w_sub / f"{sub_ses}_desc-brain_T1w.nii.gz"
-        t1w_brainmask = prep_t1w_sub / f"{sub_ses}_desc-brain_mask.nii.gz"
-        t1w_to_MNI_xfm = prep_t1w_sub / f"{sub_ses}_from-T1w_to-MNI_xfm.mat"
-        vent_mask = prep_t1w_sub / f"{sub_ses}_desc-bianca_ventmask.nii.gz"
-        wm_mask = prep_t1w_sub / f"{sub_ses}_desc-bianca_wmmask.nii.gz"
-        distancemap = prep_t1w_sub / f"{sub_ses}_desc-bianca_ventdistmap.nii.gz"
+        t1w_sub = t1w_prep_dir / f"sub-{subject}/ses-{session}/anat"
+        t1w = t1w_sub / f"{sub_ses}_space-tpl_T1w.nii.gz"
+        t1w_brain = t1w_sub / f"{sub_ses}_space-tpl_desc-brain_T1w.nii.gz"
+
+        template_sub = Path(template_prep_dir) / f"sub-{subject}/anat/"
+        t1w_brainmask = template_sub / f"{sub}_desc-brain_mask.nii.gz"
+        t1w_to_MNI_xfm = template_sub / f"{sub}_from-tpl_to-MNI_xfm.mat"
+        vent_mask = template_sub / f"{sub}_desc-bianca_ventmask.nii.gz"
+        wm_mask = template_sub / f"{sub}_desc-bianca_wmmask.nii.gz"
+        distancemap = template_sub / f"{sub}_desc-bianca_ventdistmap.nii.gz"
+        perivent_mask = template_sub / f"{sub}_desc-periventmask.nii.gz"
+        deepWM_mask = template_sub / f"{sub}_desc-deepWMmask.nii.gz"
+
         out_list = [flair_file, generic_bids_file, flair_space, t1w, t1w_brain, t1w_brainmask, t1w_to_MNI_xfm,
-                    vent_mask, wm_mask, distancemap]
+                    vent_mask, wm_mask, distancemap, perivent_mask, deepWM_mask]
+        for f in [flair_file, t1w, t1w_brain, t1w_brainmask, t1w_to_MNI_xfm, vent_mask, wm_mask, distancemap]:
+            if not f.is_file():
+                raise FileNotFoundError(f)
         return [str(o) for o in out_list]  # as Path is not taken everywhere
 
-    grabber = Node(niu.Function(input_names=["bids_dir", "t1w_prep_dir", "subject", "session", "flair_acq"],
+    grabber = Node(niu.Function(input_names=["bids_dir", "template_prep_dir", "t1w_prep_dir", "subject", "session",
+                                             "flair_acq"],
                                 output_names=["flair_file", "generic_bids_file", "flair_space", "t1w", "t1w_brain",
                                               "t1w_brainmask", "t1w_to_MNI_xfm", "vent_mask", "wm_mask",
-                                              "distancemap"],
+                                              "distancemap", "perivent_mask", "deepWM_mask"],
                                 function=subject_info_fnc),
                    name="grabber"
                    )
     grabber.inputs.bids_dir = bids_dir
     grabber.inputs.t1w_prep_dir = t1w_prep_dir
+    grabber.inputs.template_prep_dir = template_prep_dir
 
     wf.connect([(infosource, grabber, [("subject", "subject"),
                                        ("session", "session"),
@@ -68,7 +87,7 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
                  )
                 ]
                )
-    prep_flair_wf = get_prep_flair_wf()
+    prep_flair_wf = get_prep_flair_wf(omp_nthreads=omp_nthreads)
     wf.connect([(grabber, prep_flair_wf, [("flair_file", "inputnode.flair_file"),
                                           ("t1w", "inputnode.t1w"),
                                           ("t1w_brain", "inputnode.t1w_brain"),
@@ -77,6 +96,8 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
                                           ("vent_mask", "inputnode.vent_mask"),
                                           ("wm_mask", "inputnode.wm_mask"),
                                           ("distancemap", "inputnode.distancemap"),
+                                          ("perivent_mask", "inputnode.perivent_mask"),
+                                          ("deepWM_mask", "inputnode.deepWM_mask"),
                                           ]
                  )
                 ]
@@ -111,19 +132,19 @@ def prepare_bianca_data(bids_dir, t1w_prep_dir, out_dir, wd_dir, crash_dir, info
         wf.run(plugin='MultiProc', plugin_args={'n_procs': n_cpu})
 
 
-def get_prep_flair_wf(name="prep_flair"):
+def get_prep_flair_wf(name="prep_flair", omp_nthreads=1):
     wf = Workflow(name=name)
 
     inputnode = Node(niu.IdentityInterface(
         fields=["t1w", "t1w_brain", "t1w_brainmask", "t1w_to_MNI_xfm", "flair_file", "vent_mask", "wm_mask",
-                "distancemap"]),
+                "distancemap", "perivent_mask", "perivent_mask", "deepWM_mask"]),
         name='inputnode')
 
     # t1w -> flair
     flair = Node(fsl.Reorient2Std(), name="flair")
     wf.connect(inputnode, "flair_file", flair, "in_file")
 
-    flair_biascorr = Node(ants.N4BiasFieldCorrection(save_bias=False), name="flair_biascorr")
+    flair_biascorr = Node(ants.N4BiasFieldCorrection(save_bias=False, num_threads=omp_nthreads), name="flair_biascorr")
     wf.connect(flair, "out_file", flair_biascorr, "input_image")
 
     flirt_t1w_to_flair = Node(fsl.FLIRT(dof=6), name="flirt_t1w_to_flair")
@@ -151,24 +172,27 @@ def get_prep_flair_wf(name="prep_flair"):
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", vent_mask_flairSp, "in_matrix_file")
     wf.connect(flair_biascorr, "output_image", vent_mask_flairSp, "reference")
 
+    # since there might be some missalignment between the (nn resampled) brain mask and the distancemap, there might
+    # be some distance values outside the flair space brain mask --> re-threshold to get rid of them
+    # also, the distancemap was created with a dilated brainmaks
     distancemap_flairSp_init = Node(fsl.ApplyXFM(), name="distancemap_flairSp_init")
     wf.connect(inputnode, "distancemap", distancemap_flairSp_init, "in_file")
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", distancemap_flairSp_init, "in_matrix_file")
     wf.connect(flair_biascorr, "output_image", distancemap_flairSp_init, "reference")
 
-    # since there might be some missalignment between the (nn resampled) brain mask and the distancemap, there might
-    # be some distance values outside the flair space brain mask --> re-threshold to get rid of them
     distancemap_flairSp = Node(fsl.ApplyMask(), name="distancemap_flairSp")
     wf.connect(distancemap_flairSp_init, "out_file", distancemap_flairSp, "in_file")
     wf.connect(brainmask_flairSp, "out_file", distancemap_flairSp, "mask_file")
 
-    perivent_mask = Node(fsl.maths.MathsCommand(), name="perivent_mask")
-    perivent_mask.inputs.args = "-uthr 10 -bin"
-    wf.connect(distancemap_flairSp, "out_file", perivent_mask, "in_file")
+    perivent_mask_flairSp = Node(fsl.ApplyXFM(interp="nearestneighbour"), name="perivent_mask_flairSp")
+    wf.connect(inputnode, "perivent_mask", perivent_mask_flairSp, "in_file")
+    wf.connect(flirt_t1w_to_flair, "out_matrix_file", perivent_mask_flairSp, "in_matrix_file")
+    wf.connect(flair_biascorr, "output_image", perivent_mask_flairSp, "reference")
 
-    deepWM_mask = Node(fsl.maths.MathsCommand(), name="deepWM_mask")
-    deepWM_mask.inputs.args = "-thr 10 -bin"
-    wf.connect(distancemap_flairSp, "out_file", deepWM_mask, "in_file")
+    deepWM_mask_flairSp = Node(fsl.ApplyXFM(interp="nearestneighbour"), name="deepWM_mask_flairSp")
+    wf.connect(inputnode, "deepWM_mask", deepWM_mask_flairSp, "in_file")
+    wf.connect(flirt_t1w_to_flair, "out_matrix_file", deepWM_mask_flairSp, "in_matrix_file")
+    wf.connect(flair_biascorr, "output_image", deepWM_mask_flairSp, "reference")
 
     # MNI
     flair_to_t1w = Node(fsl.ConvertXFM(invert_xfm=True), name="flair_to_t1w")
@@ -198,8 +222,8 @@ def get_prep_flair_wf(name="prep_flair"):
     wf.connect(vent_mask_flairSp, "out_file", outputnode, "vent_mask")
 
     wf.connect(distancemap_flairSp, "out_file", outputnode, "distancemap")
-    wf.connect(perivent_mask, "out_file", outputnode, "perivent_mask")
-    wf.connect(deepWM_mask, "out_file", outputnode, "deepWM_mask")
+    wf.connect(perivent_mask_flairSp, "out_file", outputnode, "perivent_mask")
+    wf.connect(deepWM_mask_flairSp, "out_file", outputnode, "deepWM_mask")
 
     wf.connect(flirt_t1w_to_flair, "out_matrix_file", outputnode, "t1w_to_flair")
 

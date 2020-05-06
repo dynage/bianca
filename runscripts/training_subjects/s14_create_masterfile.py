@@ -2,6 +2,8 @@ from pathlib import Path
 from bianca.utils import create_masterfile
 
 training_data_dir = Path("/home/fliem/lhab_collaboration/WMH/BIANCA/masks_training_data")
+base_dir = Path("/home/fliem/lhab_collaboration/WMH/BIANCA/training_subjects")
+
 prep_name = "prepare_flair"
 name = "bianca"
 
@@ -9,10 +11,11 @@ name = "bianca"
 # 2D
 acq = "2D"
 space = "flair2D"
-base_dir = Path(f"/home/fliem/lhab_collaboration/WMH/BIANCA/training_subjects/{acq}")
 
-prep_dir = base_dir / prep_name
-bianca_dir = base_dir / name
+wd_dir = base_dir / "_wd" / acq / name
+crash_dir = base_dir / "_crash" / acq / name
+prep_dir = base_dir / acq / prep_name
+bianca_dir = base_dir / acq / name
 
 flair_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_acq-" + acq + "_*_FLAIR_biascorr.nii.gz"
 t1w_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_space-" + space + "_desc-t1w_brain.nii.gz"
@@ -29,10 +32,11 @@ create_masterfile(prep_dir, training_data_dir, bianca_dir,
 # 3D
 acq = "3D"
 space = "flair3D"
-base_dir = Path(f"/home/fliem/lhab_collaboration/WMH/BIANCA/training_subjects/{acq}")
 
-prep_dir = base_dir / prep_name
-bianca_dir = base_dir / name
+wd_dir = base_dir / "_wd" / acq / name
+crash_dir = base_dir / "_crash" / acq / name
+prep_dir = base_dir / acq / prep_name
+bianca_dir = base_dir / acq / name
 
 flair_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_acq-" + acq + "_*_FLAIR_biascorr.nii.gz"
 t1w_tmpl = "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_space-" + space + "_desc-t1w_brain.nii.gz"
