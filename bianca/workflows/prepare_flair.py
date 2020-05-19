@@ -27,6 +27,8 @@ def prepare_bianca_data(bids_dir, template_prep_dir, t1w_prep_dir, out_dir, wd_d
 
     def subject_info_fnc(bids_dir, template_prep_dir, t1w_prep_dir, subject, session, flair_acq):
         from pathlib import Path
+        from warnings import warn
+
         sub_ses = f"sub-{subject}_ses-{session}"
         sub = f"sub-{subject}"
 

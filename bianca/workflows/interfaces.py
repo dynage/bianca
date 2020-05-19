@@ -72,3 +72,63 @@ class MakeBiancaMask(FSLCommand):
         outputs['mask_file'] = os.path.abspath("out_bianca_mask.nii.gz")
         outputs['vent_file'] = os.path.abspath("out_ventmask.nii.gz")
         return outputs
+
+
+# BiancaOverlapMeasures
+
+# bianca_overlap_measures <lesionmask> <threshold> <manualmask> <saveoutput>
+class BiancaOverlapMeasuresInputSpec(FSLCommandInputSpec):
+    lesionmask = File(position=0, argstr="%s", exists=True, mandatory=True,
+                      desc="LPM lesion mask calculated by BIANCA")
+    threshold = traits.Float(position=1, argstr="%s", mandatory=True,
+                             desc="threshold that will be applied to <lesionmask> before calculating the overlap ")
+    manualmask = File(position=2, argstr="%s", exists=True, mandatory=True,
+                      desc="manual mask, used as reference to calculate the overlap measures")
+
+    saveoutput = traits.Int(position=3, argstr="%s", default_value=1, mandatory=True,
+                            desc="If <saveoutput> is set to 0 it will output the measures' names "
+                                 "and values on the screen  is set to 1 it will save only the values "
+                                 "in a file called Overlap_and_Volumes_<lesionmask>_<threshold>.txt")
+
+
+class BiancaOverlapMeasuresOutputSpec(TraitedSpec):
+    out_file = File(desc="overlap measures")
+
+
+class BiancaOverlapMeasures(FSLCommand):
+    from pathlib import Path
+    _cmd = "bash bianca_overlap_measures"
+    input_spec = BiancaOverlapMeasuresInputSpec
+    output_spec = BiancaOverlapMeasuresOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = os.path.abspath(Path(self.inputs.lesionmask).parent / ("Overlap_and_Volumes_" + Path(
+            self.inputs.lesionmask).name.replace(".nii.gz", f"_{self.inputs.threshold}.txt")))
+        return outputs
+
+
+# bianca_overlap_measures <lesionmask> <threshold> <manualmask> <saveoutput>
+class BiancaClusterStatsInputSpec(FSLCommandInputSpec):
+    bianca_output_map = File(position=0, argstr="%s", exists=True, mandatory=True,
+                             desc="LPM lesion mask calculated by BIANCA")
+    threshold = traits.Float(position=1, argstr="%s", mandatory=True,
+                             desc="threshold that will be applied to <lesionmask> before calculating the overlap ")
+    min_cluster_size = traits.Int(position=2, argstr="%s", mandatory=True,
+                                  desc="including clusters bigger than <min_cluster_size>")
+    mask_file = File(position=3, argstr="%s", exists=True, desc="mask file ")
+
+
+class BiancaClusterStatsOutputSpec(TraitedSpec):
+    out_stat = traits.Any(desc='stats output')
+
+
+class BiancaClusterStats(FSLCommand):
+    _cmd = "bash bianca_cluster_stats"
+    input_spec = BiancaClusterStatsInputSpec
+    output_spec = BiancaClusterStatsOutputSpec
+
+    def aggregate_outputs(self, runtime=None, needed_outputs=None):
+        outputs = self._outputs()
+        outputs.out_stat = runtime.stdout
+        return outputs

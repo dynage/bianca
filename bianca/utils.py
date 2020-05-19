@@ -55,13 +55,13 @@ def create_masterfile(prep_dir, training_data_dir, bianca_dir, flair_tmpl, t1w_t
 
     # only include masks from training subjects
     training_subject_index = df.manual_mask.apply(lambda s: Path(s).is_file())
-    df.loc[~training_subject_index, "manual_mask"] = None
+    df.loc[~training_subject_index, "manual_mask"] = "XXX"
     training_subjects = df[training_subject_index]
 
     # check if files exist
     files = df[['flair', 't1w', 'manual_mask', 'mat']].melt()["value"].to_list()
     for f in files:
-        if f:
+        if f != "XXX":
             assert Path(f).is_file(), f"{f} is missing"
 
     # save

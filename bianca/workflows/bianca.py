@@ -9,8 +9,8 @@ import numpy as np
 from copy import copy
 
 
-def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subject_idx, query_subject_idx,
-                      name="bianca", n_cpu=4, save_classifier=False, trained_classifier_file=None):
+def run_bianca_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subject_idx, query_subject_idx,
+                  name="bianca", n_cpu=4, save_classifier=False, trained_classifier_file=None):
     """
 
     :param masterfile: str
@@ -30,7 +30,8 @@ def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subje
 
     if save_classifier and trained_classifier_file:
         raise RuntimeError("save_classifier and trained_classifier_file cannot be set at the same time")
-
+    if trained_classifier_file:
+        trained_classifier_file = str(trained_classifier_file)
     #####
     # masterfile information
     expected_header = ['flair', 't1w', 'manual_mask', 'mat', 'subject', 'session']
@@ -155,7 +156,8 @@ def run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subje
     wf.run(plugin='MultiProc', plugin_args={'n_procs': n_cpu})
 
 
-def run_bianca_loo(out_dir, wd_dir, crash_dir, n_cpu=4, save_classifier=False, trained_classifier_file=None):
+def run_bianca(out_dir, wd_dir, crash_dir, n_cpu=4, save_classifier=False, trained_classifier_file=None,
+               training_subject_idx=None, query_subject_idx=None):
     try:
         version_label = subprocess.check_output(["git", "describe", "--tags"]).strip()
         (out_dir / "pipeline_version.txt").write_text(f"git {version_label.decode()}")
@@ -167,9 +169,11 @@ def run_bianca_loo(out_dir, wd_dir, crash_dir, n_cpu=4, save_classifier=False, t
 
     ######
     # subject information
-    training_subject_idx = np.where(~df.manual_mask.isna())[0]
-    query_subject_idx = list(range(len(df)))
+    if training_subject_idx is None:
+        training_subject_idx = np.where(~df.manual_mask.isna())[0]
+    if query_subject_idx is None:
+        query_subject_idx = list(range(len(df)))
 
-    run_bianca_loo_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subject_idx, query_subject_idx,
-                      n_cpu=n_cpu, save_classifier=save_classifier,
-                      trained_classifier_file=trained_classifier_file)
+    run_bianca_wf(masterfile, out_dir, wd_dir, crash_dir, df, training_subject_idx, query_subject_idx,
+                  n_cpu=n_cpu, save_classifier=save_classifier,
+                  trained_classifier_file=trained_classifier_file)

@@ -15,7 +15,7 @@ def _check_versions():
 
 
 def prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects_sessions, n_cpu=1, omp_nthreads=1,
-                run_wf=True, graph=False):
+                run_wf=True, graph=False, smriprep06=False):
     _check_versions()
     export_version(out_dir)
 
@@ -35,7 +35,8 @@ def prepare_t1w(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects_ses
                                                         smriprep_dir=smriprep_dir,
                                                         out_dir=out_dir,
                                                         name=name,
-                                                        omp_nthreads=omp_nthreads)
+                                                        omp_nthreads=omp_nthreads,
+                                                        smriprep06=smriprep06)
         wf.add_nodes([single_ses_wf])
     if graph:
         wf.write_graph("workflow_graph.png", graph2use="exec")
@@ -56,28 +57,58 @@ def init_single_ses_anat_preproc_wf(subject,
                                     smriprep_dir,
                                     out_dir,
                                     omp_nthreads=1,
-                                    name='anat_preproc_wf'):
+                                    name='anat_preproc_wf',
+                                    smriprep06=False):
     wf = Workflow(name=name)
 
-    def subject_info_fnc(bids_dir, smriprep_dir, subject, session):
-        from pathlib import Path
-        tpl_t1w = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_preproc.nii.gz"))
-        tpl_brainmask = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_brainmask.nii.gz"))
+    if smriprep06:
+        def subject_info_fnc(bids_dir, smriprep_dir, subject, session):
+            from pathlib import Path
+            tpl_t1w = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_desc-preproc_T1w.nii.gz"))
+            tpl_brainmask = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_desc-brain_mask.nii.gz"))
 
-        t1ws = list(Path(bids_dir).glob(f"sub-{subject}/ses-{session}/anat/*_T1w.nii.gz"))
-        assert len(t1ws) > 0, f"Expected at least one file, but found {t1ws}"
-        t1ws.sort()
+            t1ws = list(Path(bids_dir).glob(f"sub-{subject}/ses-{session}/anat/*_T1w.nii.gz"))
+            assert len(t1ws) > 0, f"Expected at least one file, but found {t1ws}"
+            t1ws.sort()
 
-        xfms = list(Path(smriprep_dir).glob(
-            f"sub-{subject}/ses-{session}/anat/*_run-*_T1w_space-orig_target-T1w_affine.txt"))
-        xfms.sort()
+            xfms = list(Path(smriprep_dir).glob(
+                f"sub-{subject}/ses-{session}/anat/*_run-*_T1w_space-orig_target-T1w_affine.txt"))
+            xfms.sort()
 
-        for f in t1ws + xfms:
-            if not f.is_file():
-                raise FileNotFoundError(f)
-        t1ws = [str(o) for o in t1ws]  # as Path is not taken everywhere
-        xfms = [str(o) for o in xfms]
-        return tpl_t1w, tpl_brainmask, t1ws, xfms
+            for f in t1ws:
+                if not f.is_file():
+                    raise FileNotFoundError(f)
+            t1ws = [str(o) for o in t1ws]  # as Path is not taken everywhere
+            xfms = [str(o) for o in xfms]
+            return tpl_t1w, tpl_brainmask, t1ws, xfms
+
+    else:
+        def subject_info_fnc(bids_dir, smriprep_dir, subject, session):
+            from pathlib import Path
+            tpl_t1w = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_preproc.nii.gz"))
+            tpl_brainmask = str(Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_brainmask.nii.gz"))
+            if not Path(tpl_t1w).is_file():
+                tpl_t1w = str(
+                    list(Path(smriprep_dir).glob(f"sub-{subject}/ses*/anat/sub-{subject}*_T1w_preproc.nii.gz"))[0])
+                tpl_brainmask = str(list(
+                    Path(smriprep_dir).glob(f"sub-{subject}/ses*/anat/sub-{subject}*_T1w_brainmask.nii.gz"))[0])
+                if not Path(tpl_t1w).is_file():
+                    raise FileNotFoundError(tpl_t1w)
+
+            t1ws = list(Path(bids_dir).glob(f"sub-{subject}/ses-{session}/anat/*_T1w.nii.gz"))
+            assert len(t1ws) > 0, f"Expected at least one file, but found {t1ws}"
+            t1ws.sort()
+
+            xfms = list(Path(smriprep_dir).glob(
+                f"sub-{subject}/ses-{session}/anat/*_run-*_T1w_space-orig_target-T1w_affine.txt"))
+            xfms.sort()
+
+            for f in t1ws + xfms:
+                if not f.is_file():
+                    raise FileNotFoundError(f)
+            t1ws = [str(o) for o in t1ws]  # as Path is not taken everywhere
+            xfms = [str(o) for o in xfms]
+            return tpl_t1w, tpl_brainmask, t1ws, xfms
 
     grabber = pe.Node(niu.Function(input_names=["bids_dir", "smriprep_dir", "subject", "session"],
                                    output_names=["tpl_t1w", "tpl_brainmask", "t1ws", "xfms"],

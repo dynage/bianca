@@ -122,3 +122,25 @@ Runs bianca.
 
 LOCATE also needs the <subject_name>_manualmask.nii.gz
 
+
+## 6. prepare locate
+names files that can be used for locate (symlinks)
+
+## 7. bianca threshold
+### workflow
+
+masks bianca LPM with bianca-wm-mask and applies threshold(s).
+Runs `bianca_cluster_stats`
+
+if `run_BiancaOverlapMeasures=True`, runs `bianca_overlap_measures` vs manual masks
+
+### output
+| file                                                          | info                                                                                              |
+| -------------                                                 | -------------                                                                                     |
+| _FLAIR_desc-biancamasked.nii.gz                               | bianca LPM masked with bianca-wm-mask                                                             |
+| _FLAIR_desc-thresh{threshold}_biancaLPMmaskedThrBin.nii.gz    | bianca LPM masked with bianca-wm-mask, thresholdedand binarized                                   |
+| _FLAIR_desc-thresh{threshold}_ClusterStatsTotal.txt           | output of `bianca_cluster_stats` bianca LPM masked with bianca-wm-mask                            |
+| _FLAIR_desc-thresh{threshold}_ClusterStatsdeepwm.txt          | output of `bianca_cluster_stats` within deep wm mask (bianca LPM masked with bianca-wm-mask)      |
+| _FLAIR_desc-thresh{threshold}_ClusterStatsperventwm.txt       | output of `bianca_cluster_stats` within perivent wm mask (bianca LPM masked with bianca-wm-mask)  |
+| _FLAIR_desc-thresh{threshold}_overlap.txt                     | output of `bianca_overlap_measures` (bianca LPM masked with bianca-wm-mask)                       |
+

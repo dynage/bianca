@@ -7,7 +7,7 @@ from ..utils import export_version
 
 
 def prepare_template(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subjects, n_cpu=1, omp_nthreads=1,
-                     run_wf=True, graph=False):
+                     run_wf=True, graph=False, smriprep06=False):
     export_version(out_dir)
 
     out_dir.mkdir(exist_ok=True, parents=True)
@@ -22,17 +22,45 @@ def prepare_template(bids_dir, smriprep_dir, out_dir, wd_dir, crash_dir, subject
     infosource.iterables = [("subject", subjects)
                             ]
 
-    def subject_info_fnc(smriprep_dir, subject):
-        from pathlib import Path
-        tpl_t1w = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_preproc.nii.gz")
-        tpl_t1w_brainmask = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_brainmask.nii.gz")
-        CSF_pve = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_class-CSF_probtissue.nii.gz")
+    if smriprep06:
+        def subject_info_fnc(smriprep_dir, subject):
+            from pathlib import Path
+            tpl_t1w = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_desc-preproc_T1w.nii.gz")
+            tpl_t1w_brainmask = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_desc-brain_mask.nii.gz")
+            CSF_pve = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_label-CSF_probseg.nii.gz")
 
-        out_list = [tpl_t1w, tpl_t1w_brainmask, CSF_pve]
-        for f in out_list:
-            if not f.is_file():
-                raise FileNotFoundError(f)
-        return [str(o) for o in out_list]  # as Path is not taken everywhere
+            out_list = [tpl_t1w, tpl_t1w_brainmask, CSF_pve]
+            for f in out_list:
+                if not f.is_file():
+                    raise FileNotFoundError(f)
+            return [str(o) for o in out_list]  # as Path is not taken everywhere
+    else:
+        def subject_info_fnc(smriprep_dir, subject):
+            from pathlib import Path
+            tpl_t1w = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_preproc.nii.gz")
+            tpl_t1w_brainmask = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_brainmask.nii.gz")
+            CSF_pve = Path(smriprep_dir, f"sub-{subject}/anat/sub-{subject}_T1w_class-CSF_probtissue.nii.gz")
+
+            out_list = [tpl_t1w, tpl_t1w_brainmask, CSF_pve]
+            in_ses_folder = False
+            for f in out_list:
+                if not f.is_file():
+                    in_ses_folder = True
+
+            if in_ses_folder:
+                tpl_t1w = list(Path(smriprep_dir).glob(f"sub-{subject}/ses*/anat/sub-{subject}*_T1w_preproc.nii.gz"))[
+                    0]
+                tpl_t1w_brainmask = list(Path(
+                    smriprep_dir).glob(f"sub-{subject}/ses*/anat/sub-{subject}*_T1w_brainmask.nii.gz"))[0]
+                CSF_pve = list(Path(
+                    smriprep_dir).glob(f"sub-{subject}/ses*/anat/sub-{subject}*_T1w_class-CSF_probtissue.nii.gz"))[0]
+
+                out_list = [tpl_t1w, tpl_t1w_brainmask, CSF_pve]
+                for f in out_list:
+                    if not f.is_file():
+                        raise FileNotFoundError(f)
+
+            return [str(o) for o in out_list]  # as Path is not taken everywhere
 
     grabber = pe.Node(niu.Function(input_names=["smriprep_dir", "subject"],
                                    output_names=["tpl_t1w", "tpl_t1w_brainmask", "CSF_pve"],
