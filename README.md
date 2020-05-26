@@ -144,3 +144,7 @@ if `run_BiancaOverlapMeasures=True`, runs `bianca_overlap_measures` vs manual ma
 | _FLAIR_desc-thresh{threshold}_ClusterStatsperventwm.txt       | output of `bianca_cluster_stats` within perivent wm mask (bianca LPM masked with bianca-wm-mask)  |
 | _FLAIR_desc-thresh{threshold}_overlap.txt                     | output of `bianca_overlap_measures` (bianca LPM masked with bianca-wm-mask)                       |
 
+## 8. Post-locate-masking
+
+takes binary outputs from locate and applies bianca-wm-mask again 
+(due to some resampling within locate, locate labels some voxels outside the bianca-wm-mask).
