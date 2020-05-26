@@ -34,7 +34,8 @@ def prepare_locate(flair_dir, bianca_dir, training_data_dir, locate_out_dir, sub
     )
     mapping = [
         (bianca_dir / "*_FLAIR_LPM.nii.gz", "{sub_ses}_BIANCA_LPM.nii.gz"),
-        (flair_dir / "*_FLAIR_biascorr.nii.gz", "{sub_ses}_feature_FLAIR.nii.gz"),
+        (flair_dir / "*_FLAIR_biascorrIntNorm.nii.gz", "{sub_ses}_feature_FLAIR.nii.gz"),
+        #(flair_dir / "*_FLAIR_biascorr.nii.gz", "{sub_ses}_feature_FLAIR.nii.gz"), no int norm
         (flair_dir / "*_desc-t1w_brain.nii.gz", "{sub_ses}_feature_t1w.nii.gz"),
         (flair_dir / "*_desc-distanceVent.nii.gz", "{sub_ses}_ventdistmap.nii.gz"),
         (flair_dir / "*_desc-brainmask.nii.gz", "{sub_ses}_brainmask.nii.gz"),
